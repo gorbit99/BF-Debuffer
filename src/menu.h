@@ -2,8 +2,8 @@
 
 typedef struct MenuData MenuData;
 
-MenuData *menu_create();
+MenuData *menu_create(int argc, char **argv);
 
 void menu_free(MenuData *menu);
 
-void menu_add(char *menu, void (*func)(void *userdata));
+void menu_run(MenuData *menu);

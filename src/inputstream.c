@@ -17,7 +17,8 @@ typedef struct InputStreamBlock {
 struct InputStream {
     InputStreamBlock *head;
     InputStreamBlock *tail;
-    char *(*gather_func)();
+    char *(*gather_func)(void *data);
+    void *data;
 };
 
 static void streamblock_free(InputStreamBlock *head) {
@@ -31,8 +32,9 @@ static void streamblock_free(InputStreamBlock *head) {
 
 static bool streamblock_read(InputStreamBlock **head,
                              InputStreamBlock **tail,
-                             char *(*gather_func)()) {
-    char *input = gather_func();
+                             char *(*gather_func)(void *data),
+                             void *is_data) {
+    char *input = gather_func(is_data);
     if (input == NULL) {
         return false;
     }
@@ -90,8 +92,9 @@ static bool streamblock_read(InputStreamBlock **head,
     return true;
 }
 
-InputStream *inputstream_create(char *(*gather_func)()) {
+InputStream *inputstream_create(char *(*gather_func)(void *data), void *data) {
     InputStream *inputstream = (InputStream *)malloc(sizeof(InputStream));
+    inputstream->data = data;
     inputstream->head = NULL;
     inputstream->tail = NULL;
     inputstream->gather_func = gather_func;
@@ -125,16 +128,31 @@ char streamblock_read_char(InputStreamBlock **head, InputStreamBlock **tail) {
     return result;
 }
 
-char inputstream_read(InputStream *inputstream) {
+char inputstream_read(InputStream *inputstream, EOFMode mode) {
     char c = streamblock_read_char(&inputstream->head, &inputstream->tail);
     if (c != '\0') {
         return c;
     }
     if (streamblock_read(&inputstream->head,
                          &inputstream->tail,
-                         inputstream->gather_func)) {
+                         inputstream->gather_func,
+                         inputstream->data)) {
         return streamblock_read_char(&inputstream->head, &inputstream->tail);
     } else {
-        return '\0';
+        switch (mode) {
+        case EOF_Zero:
+            return 0;
+        case EOF_Negative:
+            return -1;
+        case EOF_Newline:
+            return '\n';
+        case EOF_Unchanged:
+            return 0;
+        }
     }
+    return 0;
+}
+
+void *inputstream_get_data(InputStream *inputstream) {
+    return inputstream->data;
 }
